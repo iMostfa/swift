@@ -464,10 +464,6 @@ Type TypeChecker::typeCheckParameterDefault(Expr *&defaultValue,
       return defaultValue->getType();
     }
 
-    // If inference is disabled, fail.
-    if (!ctx.TypeCheckerOpts.EnableTypeInferenceFromDefaultArguments)
-      return Type();
-
     // Caller-side defaults are always type-checked based on the concrete
     // type of the argument deduced at a particular call site.
     if (isa<MagicIdentifierLiteralExpr>(defaultValue))
@@ -619,6 +615,12 @@ Type TypeChecker::typeCheckParameterDefault(Expr *&defaultValue,
         // Unrelated requirement.
         if (!containsTypes(lhsTy, genericParameters) &&
             !containsTypes(rhsTy, genericParameters))
+          continue;
+
+        // If both sides are dependent members, that's okay because types
+        // don't flow from member to the base e.g. `T.Element == U.Element`.
+        if (lhsTy->is<DependentMemberType>() &&
+            rhsTy->is<DependentMemberType>())
           continue;
 
         // Allow a subset of generic same-type requirements that only mention
@@ -874,6 +876,8 @@ bool TypeChecker::typeCheckExprPattern(ExprPattern *EP, DeclContext *DC,
 
   std::tie(matchVar, matchCall) = *tildeEqualsApplication;
 
+  matchVar->setInterfaceType(rhsType->mapTypeOutOfContext());
+
   // Result of `~=` should always be a boolean.
   auto contextualTy = Context.getBoolDecl()->getDeclaredInterfaceType();
   auto target = SolutionApplicationTarget::forExprPattern(matchCall, DC, EP,
@@ -902,7 +906,6 @@ TypeChecker::synthesizeTildeEqualsOperatorApplication(ExprPattern *EP,
   auto *matchVar =
       new (Context) VarDecl(/*IsStatic*/ false, VarDecl::Introducer::Let,
                             EP->getLoc(), Context.Id_PatternMatchVar, DC);
-  matchVar->setInterfaceType(enumType->mapTypeOutOfContext());
 
   matchVar->setImplicit();
 

@@ -1311,8 +1311,6 @@ public:
   
   void visitConvertFunctionInst(ConvertFunctionInst *i);
   void visitConvertEscapeToNoEscapeInst(ConvertEscapeToNoEscapeInst *i);
-  void visitThinFunctionToPointerInst(ThinFunctionToPointerInst *i);
-  void visitPointerToThinFunctionInst(PointerToThinFunctionInst *i);
   void visitUpcastInst(UpcastInst *i);
   void visitAddressToPointerInst(AddressToPointerInst *i);
   void visitPointerToAddressInst(PointerToAddressInst *i);
@@ -5767,7 +5765,9 @@ void IRGenSILFunction::visitBeginUnpairedAccessInst(
     // in which case we should use the caller, which is generally ok because
     // materializeForSet can't usually be thunked.
     llvm::Value *pc;
-    if (hasBeenInlined(access)) {
+    // Wasm doesn't have returnaddress because it can't access call frame
+    // for security purposes
+    if (IGM.Triple.isWasm() || hasBeenInlined(access)) {
       pc = llvm::ConstantPointerNull::get(IGM.Int8PtrTy);
     } else {
       auto retAddrFn =
@@ -5853,26 +5853,6 @@ void IRGenSILFunction::visitConvertEscapeToNoEscapeInst(
     out.add(fn);
     out.add(Builder.CreateBitCast(ctx, IGM.OpaquePtrTy));
   }
-  setLoweredExplosion(i, out);
-}
-
-void IRGenSILFunction::visitThinFunctionToPointerInst(
-                                          swift::ThinFunctionToPointerInst *i) {
-  Explosion in = getLoweredExplosion(i->getOperand());
-  llvm::Value *fn = in.claimNext();
-  fn = Builder.CreateBitCast(fn, IGM.Int8PtrTy);
-  Explosion out;
-  out.add(fn);
-  setLoweredExplosion(i, out);
-}
-
-void IRGenSILFunction::visitPointerToThinFunctionInst(
-                                          swift::PointerToThinFunctionInst *i) {
-  Explosion in = getLoweredExplosion(i->getOperand());
-  llvm::Value *fn = in.claimNext();
-  fn = Builder.CreateBitCast(fn, IGM.FunctionPtrTy);
-  Explosion out;
-  out.add(fn);
   setLoweredExplosion(i, out);
 }
 

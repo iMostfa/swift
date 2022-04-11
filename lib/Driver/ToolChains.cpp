@@ -190,7 +190,7 @@ void ToolChain::addCommonFrontendArgs(const OutputInfo &OI,
 
   // Add flags for C++ interop.
   if (inputArgs.hasArg(options::OPT_enable_experimental_cxx_interop)) {
-    arguments.push_back("-enable-cxx-interop");
+    arguments.push_back("-enable-experimental-cxx-interop");
   }
   if (const Arg *arg =
           inputArgs.getLastArg(options::OPT_experimental_cxx_stdlib)) {
@@ -298,6 +298,8 @@ void ToolChain::addCommonFrontendArgs(const OutputInfo &OI,
                        options::OPT_verify_incremental_dependencies);
   inputArgs.AddLastArg(arguments, options::OPT_access_notes_path);
   inputArgs.AddLastArg(arguments, options::OPT_library_level);
+  inputArgs.AddLastArg(arguments, options::OPT_enable_regex_literals);
+  inputArgs.AddLastArg(arguments, options::OPT_async_main);
 
   // Pass on any build config options
   inputArgs.AddAllArgs(arguments, options::OPT_D);

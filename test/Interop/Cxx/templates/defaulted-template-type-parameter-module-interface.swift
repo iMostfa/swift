@@ -1,4 +1,4 @@
-// RUN: %target-swift-ide-test -print-module -module-to-print=DefaultedTemplateTypeParameter -I %S/Inputs -source-filename=x -enable-cxx-interop | %FileCheck %s
+// RUN: %target-swift-ide-test -print-module -module-to-print=DefaultedTemplateTypeParameter -I %S/Inputs -source-filename=x -enable-experimental-cxx-interop | %FileCheck %s
 
 // CHECK: struct X {
 // CHECK:   init<T>(_: T)
@@ -19,5 +19,8 @@
 // with the fact that the template type paramaters are defaulted.
 // TODO: reenable the following checks: (rdar://90587703)
 // TODO-CHECK: func defaultedTemplatePointerTypeParam<T>(_ t: UnsafeMutablePointer<T>)
-// TODO-CHECK: func defaultedTemplatePointerReferenceTypeParam<T>(_ t: inout OpaquePointer!)
 // TODO-CHECK: func defaultedTemplatePointerPointerTypeParam<T>(_ t: UnsafeMutablePointer<OpaquePointer?>!)
+
+// CHECK: func defaultedTemplatePointerTypeParam<T>(_ t: UnsafeMutablePointer<T>)
+// We don't support references to dependent types (rdar://89034440).
+// CHECK-NOT: defaultedTemplatePointerReferenceTypeParam

@@ -270,6 +270,10 @@ def pch_output_dir: Separate<["-"], "pch-output-dir">,
   Flags<[FrontendOption, HelpHidden, ArgumentIsPath]>,
   HelpText<"Directory to persist automatically created precompiled bridging headers">;
 
+def async_main: Flag<["-"], "async-main">,
+    Flags<[FrontendOption]>,
+    HelpText<"Resolve main function as if it were called from an asynchronous context">;
+
 // FIXME: Unhide this once it doesn't depend on an output file map.
 def incremental : Flag<["-"], "incremental">,
   Flags<[NoInteractiveOption, HelpHidden, DoesNotAffectIncrementalBuild]>,
@@ -604,10 +608,6 @@ def enable_experimental_concise_pound_file : Flag<["-"],
   Flags<[FrontendOption, ModuleInterfaceOption]>,
   HelpText<"Enable experimental concise '#file' identifier">;
 
-def enable_experimental_cxx_interop :
-  Flag<["-"], "enable-experimental-cxx-interop">,
-  HelpText<"Allow importing C++ modules into Swift (experimental feature)">;
-
 def experimental_cxx_stdlib :
   Separate<["-"], "experimental-cxx-stdlib">,
   HelpText<"C++ standard library to use; forwarded to Clang's -stdlib flag">;
@@ -675,6 +675,10 @@ def disable_actor_data_race_checks :
   Flag<["-"], "disable-actor-data-race-checks">,
   Flags<[FrontendOption, DoesNotAffectIncrementalBuild]>,
   HelpText<"Disable runtime checks for actor data races">;
+
+def enable_regex_literals : Flag<["-"], "enable-regex-literals">,
+  Flags<[FrontendOption, ModuleInterfaceOptionIgnorable]>,
+  HelpText<"Enable the use of regular-expression literals">;
 
 def warn_implicit_overrides :
   Flag<["-"], "warn-implicit-overrides">,

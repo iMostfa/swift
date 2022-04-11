@@ -37,7 +37,7 @@
 ///
 /// 1. Reused-storage: Some operations are guaranteed to reuse their operand's
 /// storage. This includes extracting an enum payload and opening an existential
-/// value. This is required avoid introducing new copies or moves.
+/// value. This is required to avoid introducing new copies or moves.
 ///
 ///   // %data's storage must reuse storage allocated for %enum
 ///   %data = unchecked_enum_data %enum : $Optional<T>, #Optional.some!enumelt
@@ -798,6 +798,8 @@ static Operand *getProjectedDefOperand(SILValue value) {
 /// is address-only, then the operand must be address-only and therefore must
 /// mapped to ValueStorage.
 ///
+/// If \p value is an unchecked_bitwise_cast, then return the cast operand.
+///
 /// open_existential_value must reuse storage because the boxed value is shared
 /// with other instances of the existential. An explicit copy is needed to
 /// obtain an owned value.
@@ -812,6 +814,7 @@ static Operand *getReusedStorageOperand(SILValue value) {
   case ValueKind::OpenExistentialValueInst:
   case ValueKind::OpenExistentialBoxValueInst:
   case ValueKind::UncheckedEnumDataInst:
+  case ValueKind::UncheckedBitwiseCastInst:
     return &cast<SingleValueInstruction>(value)->getOperandRef(0);
 
   case ValueKind::SILPhiArgument: {
@@ -2500,12 +2503,6 @@ protected:
   // types.
   void visitOpenExistentialValueInst(OpenExistentialValueInst *openExistential);
 
-  void visitOpenExistentialBoxValueInst(
-      OpenExistentialBoxValueInst *openExistentialBox) {
-    // FIXME: Unimplemented
-    llvm::report_fatal_error("Unimplemented OpenExistentialBox use.");
-  }
-
   void visitReturnInst(ReturnInst *returnInst) {
     // Returns are rewritten for any function with indirect results after
     // opaque value rewriting.
@@ -2551,9 +2548,16 @@ protected:
   // Extract from an opaque tuple.
   void visitTupleExtractInst(TupleExtractInst *extractInst);
 
-  void visitUncheckedBitwiseCast(UncheckedBitwiseCastInst *uncheckedCastInst) {
-    // FIXME: Unimplemented
-    llvm::report_fatal_error("Unimplemented UncheckedBitwiseCast use.");
+  void
+  visitUncheckedBitwiseCastInst(UncheckedBitwiseCastInst *uncheckedCastInst) {
+    SILValue srcVal = uncheckedCastInst->getOperand();
+    SILValue srcAddr = pass.valueStorageMap.getStorage(srcVal).storageAddress;
+
+    auto destAddr = builder.createUncheckedAddrCast(
+        uncheckedCastInst->getLoc(), srcAddr,
+        uncheckedCastInst->getType().getAddressType());
+
+    markRewritten(uncheckedCastInst, destAddr);
   }
 
   void visitUncheckedEnumDataInst(UncheckedEnumDataInst *enumDataInst);
@@ -2615,15 +2619,7 @@ void UseRewriter::visitOpenExistentialValueInst(
       openExistential->getType().getAddressType(),
       OpenedExistentialAccess::Immutable);
 
-  SmallVector<Operand *, 4> typeUses;
-  for (Operand *use : openExistential->getUses()) {
-    if (use->isTypeDependent()) {
-      typeUses.push_back(use);
-    }
-  }
-  for (Operand *use : typeUses) {
-    use->set(openAddr);
-  }
+  openExistential->replaceAllTypeDependentUsesWith(openAddr);
   markRewritten(openExistential, openAddr);
 }
 
@@ -2929,11 +2925,18 @@ protected:
     addrMat.initializeComposingUse(&initExistentialValue->getOperandRef());
   }
 
-  // Project an opaque value out of a box-type existential.
   void visitOpenExistentialBoxValueInst(
-      OpenExistentialBoxValueInst *openExistentialBox) {
-    // FIXME: Unimplemented
-    llvm::report_fatal_error("Unimplemented OpenExistentialBoxValue def.");
+      OpenExistentialBoxValueInst *openExistentialBoxValue) {
+    // Replace the module's openedArchetypesDef
+    pass.getModule()->willDeleteInstruction(openExistentialBoxValue);
+
+    auto *openAddr = builder.createOpenExistentialBox(
+        openExistentialBoxValue->getLoc(),
+        openExistentialBoxValue->getOperand(),
+        openExistentialBoxValue->getType().getAddressType());
+
+    openExistentialBoxValue->replaceAllTypeDependentUsesWith(openAddr);
+    setStorageAddress(openExistentialBoxValue, openAddr);
   }
 
   // Load an opaque value.
@@ -2967,6 +2970,14 @@ protected:
     // may be loadable types.
     for (Operand &operand : tupleInst->getAllOperands())
       addrMat.initializeComposingUse(&operand);
+  }
+
+  void setStorageAddress(SILValue oldValue, SILValue addr) {
+    auto &storage = pass.valueStorageMap.getStorage(oldValue);
+    // getReusedStorageOperand() ensures that oldValue does not already have
+    // separate storage. So there's no need to delete its alloc_stack.
+    assert(!storage.storageAddress || storage.storageAddress == addr);
+    storage.storageAddress = addr;
   }
 };
 } // end anonymous namespace
@@ -3122,7 +3133,8 @@ static void deleteRewrittenInstructions(AddressLoweringState &pass) {
       }
     }
     LLVM_DEBUG(llvm::dbgs() << "DEAD "; deadInst->dump());
-    if (!isa<OpenExistentialValueInst>(deadInst)) {
+    if (!isa<OpenExistentialValueInst>(deadInst) &&
+        !isa<OpenExistentialBoxValueInst>(deadInst)) {
       pass.deleter.forceDeleteWithUsers(deadInst);
       continue;
     }

@@ -142,9 +142,9 @@ def disable_testable_attr_requires_testable_module :
   Flag<["-"], "disable-testable-attr-requires-testable-module">,
   HelpText<"Disable checking of @testable">;
 
-def enable_clang_spi :
-  Flag<["-"], "enable-clang-spi">,
-  HelpText<"Import Clang SPIs as Swift SPIs">;
+def disable_clang_spi :
+  Flag<["-"], "disable-clang-spi">,
+  HelpText<"Don't import Clang SPIs as Swift SPIs">;
 
 def enable_target_os_checking :
   Flag<["-"], "enable-target-os-checking">,
@@ -248,6 +248,10 @@ let Flags = [FrontendOption, NoDriverOption, HelpHidden, ModuleInterfaceOptionIg
   def enable_lexical_lifetimes_noArg :
     Flag<["-"], "enable-lexical-lifetimes">,
     HelpText<"Enable lexical lifetimes">;
+  def enable_destroy_hoisting :
+    Joined<["-"], "enable-destroy-hoisting=">,
+    HelpText<"Whether to enable destroy hoisting">,
+    MetaVarName<"true|false">;
 }
 
 // Flags that are saved into module interfaces
@@ -365,8 +369,11 @@ def disable_requirement_machine_concrete_contraction : Flag<["-"], "disable-requ
   HelpText<"Disable preprocessing pass to eliminate conformance requirements "
            "on generic parameters which are made concrete">;
 
-def enable_requirement_machine_loop_normalization : Flag<["-"], "enable-requirement-machine-loop-normalization">,
-  HelpText<"Enable stronger minimization algorithm, for debugging only">;
+def disable_requirement_machine_loop_normalization : Flag<["-"], "disable-requirement-machine-loop-normalization">,
+  HelpText<"Disable stronger minimization algorithm, for debugging only">;
+
+def disable_requirement_machine_reuse : Flag<["-"], "disable-requirement-machine-reuse">,
+  HelpText<"Disable re-use of requirement machines for minimization, for debugging only">;
 
 def enable_requirement_machine_opaque_archetypes : Flag<["-"], "enable-requirement-machine-opaque-archetypes">,
   HelpText<"Enable more correct opaque archetype support, which is off by default because it might fail to produce a convergent rewrite system">;
@@ -418,6 +425,10 @@ def disable_implicit_concurrency_module_import : Flag<["-"],
 def disable_implicit_distributed_module_import : Flag<["-"],
   "disable-implicit-distributed-module-import">,
   HelpText<"Disable the implicit import of the Distributed module.">;
+
+def disable_implicit_string_processing_module_import : Flag<["-"],
+  "disable-implicit-string-processing-module-import">,
+  HelpText<"Disable the implicit import of the _StringProcessing module.">;
 
 def disable_arc_opts : Flag<["-"], "disable-arc-opts">,
   HelpText<"Don't run SIL ARC optimization passes.">;
@@ -529,9 +540,9 @@ def enable_explicit_existential_types :
   Flag<["-"], "enable-explicit-existential-types">,
   HelpText<"Enable experimental support for explicit existential types">;
 
-def enable_parameterized_protocol_types :
-  Flag<["-"], "enable-parameterized-protocol-types">,
-  HelpText<"Enable experimental support for primary associated types and parameterized protocols">;
+def enable_parameterized_existential_types :
+  Flag<["-"], "enable-parameterized-existential-types">,
+  HelpText<"Enable experimental support for parameterized existential types">;
 
 def enable_experimental_opened_existential_types :
   Flag<["-"], "enable-experimental-opened-existential-types">,
@@ -812,9 +823,14 @@ def emit_sorted_sil : Flag<["-"], "emit-sorted-sil">,
 def emit_syntax : Flag<["-"], "emit-syntax">,
   HelpText<"Parse input file(s) and emit the Syntax tree(s) as JSON">, ModeOpt;
 
+def enable_experimental_cxx_interop :
+  Flag<["-"], "enable-experimental-cxx-interop">,
+  HelpText<"Enable C++ interop code generation and config directives">,
+  Flags<[FrontendOption, HelpHidden]>;
+
 def enable_cxx_interop :
   Flag<["-"], "enable-cxx-interop">,
-  HelpText<"Enable C++ interop code generation and config directives">,
+  HelpText<"Alias for -enable-experimental-cxx-interop">,
   Flags<[FrontendOption, HelpHidden]>;
 
 def use_malloc : Flag<["-"], "use-malloc">,
