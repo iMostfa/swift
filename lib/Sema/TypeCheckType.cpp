@@ -5690,7 +5690,7 @@ TypeResolver::resolveExistentialType(ExistentialTypeRepr *repr,
     // so we won't suggest `let _: (Int, (any P)!)` as it's illegal.
     if (isImplicitlyUnwrapped && !shouldDiagnoseImplicitlyUnwrappedOptional && isWrappedExistential)  {
       diagnose(repr->getLoc(),
-               diag::incorrect_force_unwrapped_any,
+               diag::incorrect_iuo_any,
                wrapped->getMetatypeInstanceType().getString())
           .fixItReplace(repr->getSourceRange(), "(" + wrapped.getString() + ")!");
       return constraintType;

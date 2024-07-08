@@ -5769,7 +5769,7 @@ ERROR(incorrect_optional_any,none,
       "using '!' is not allowed here; perhaps '?' was intended",
       ())
 
-ERROR(incorrect_force_unwrapped_any,none,
+ERROR(incorrect_iuo_any,none,
       "force unwrapped 'any' type must be written (%0)!",
       (StringRef))
 ERROR(existential_requires_any,none,
