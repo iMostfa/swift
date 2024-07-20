@@ -478,6 +478,22 @@ func testAnyFixIt() {
   let _: (((((~Copyable) & NonCopyableHasAssoc) & NonCopyableHasAssoc).Type.Type)).Type?
   let _: any (((((~Copyable) & NonCopyableHasAssoc) & NonCopyableHasAssoc).Type.Type)).Type // OK
 
+  // Misplaced '!'.
+  // expected-error@+1 {{force unwrapped 'any' type must be written (any HasAssoc)!}}{{10-23=(any HasAssoc)!}}
+  let _: any HasAssoc!
+
+  // expected-error@+1 {{using '!' is not allowed here; perhaps '?' was intended}}{{16-29=(any HasAssoc)?}}
+  let _: (Int, any HasAssoc!)
+
+  // expected-error@+1 {{using '!' is not allowed here; perhaps '?' was intended}}{{12-19=(any PP)?}}
+  let _: G<any PP!>
+
+  // expected-error@+1 {{using '!' is not allowed here; perhaps '?' was intended}}{{11-18=(any PP)?}}
+  let _: (any PP!) -> Void
+
+  // expected-error@+1 {{using '!' is not allowed here; perhaps '?' was intended}}{{11-17=(any PP)?}}
+  let _: (any P!)?
+
   // Misplaced '?'.
 
   // expected-error@+1 {{optional 'any' type must be written '(any HasAssoc)?'}}{{10-23=(any HasAssoc)?}}
@@ -485,7 +501,7 @@ func testAnyFixIt() {
   // FIXME: Better recovery
   // expected-error@+1 {{type '(any Copyable)?' cannot be suppressed}}
   let _: any ~Copyable?
-  // expected-error@+1 {{optional 'any' type must be written '(any HasAssoc.Type)?'}}{{10-28=(any HasAssoc.Type)?}}
+  // expected-error@+1 {{using '!' is not allowed here; perhaps '?' was intended}}{{10-28=(any HasAssoc.Type)?}}
   let _: any HasAssoc.Type?
   // FIXME: Better recovery
   // expected-error@+1 {{type '(any Copyable.Type)?' cannot be suppressed}}
