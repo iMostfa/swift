@@ -17,11 +17,11 @@
 #include "swift/AST/DiagnosticsSIL.h"
 #include "swift/AST/DistributedDecl.h"
 #include "swift/AST/Expr.h"
+#include "swift/AST/ParameterList.h"
+#include "swift/AST/SemanticAttrs.h"
 #include "swift/AST/Stmt.h"
-#include "swift/Basic/Assertions.h"
 #include "swift/ClangImporter/ClangModule.h"
 #include "swift/SIL/BasicBlockBits.h"
-#include "swift/AST/SemanticAttrs.h"
 #include "swift/SIL/BasicBlockData.h"
 #include "swift/SIL/InstructionUtils.h"
 #include "swift/SIL/MemAccessUtils.h"
@@ -30,7 +30,6 @@
 #include "swift/SIL/SILValue.h"
 #include "swift/SILOptimizer/PassManager/Passes.h"
 #include "swift/SILOptimizer/PassManager/Transforms.h"
-#include "swift/SILOptimizer/Utils/CFGOptUtils.h"
 #include "swift/SILOptimizer/Utils/DistributedActor.h"
 #include "swift/SILOptimizer/Utils/InstOptUtils.h"
 #include "llvm/ADT/STLExtras.h"
@@ -2298,8 +2297,61 @@ bool LifetimeChecker::diagnoseReturnWithoutInitializingStoredProperties(
              theStruct->getParentModule()->getName(),
              theStruct->hasClangNode());
   } else {
+    // to generate the missing variables
+    std::string missingVariablesMessage;
+    std::string suggestedInitializerString;
+    AvailabilitySet Liveness =
+      getLivenessAtInst(Use.Inst, Use.FirstElement, Use.NumElements);
+    for (unsigned i = Use.FirstElement, e = Use.FirstElement + Use.NumElements;
+        i != e; ++i) {
+      // Ignore a failed super.init requirement.
+      if (i == TheMemory.getNumElements() - 1 && TheMemory.isDerivedClassSelf())
+        continue;
+
+      std::string Name;
+      auto *Decl = TheMemory.getPathStringToElement(i, Name);
+
+      auto propertyInitIsolation = ActorIsolation::forUnspecified();
+
+      std::string inferredDeclType;
+      if (Decl) {
+        if (auto *var = dyn_cast<VarDecl>(Decl)) {
+          inferredDeclType = var->getValueInterfaceType().getString();
+          propertyInitIsolation = var->getInitializerIsolation();
+        }
+
+        // If it's marked @_compilerInitialized, delay emission of the note.
+        if (Decl->getAttrs().hasAttribute<CompilerInitializedAttr>()) {
+          continue;
+        }
+      }
+
+      if (propertyInitIsolation.isGlobalActor()) {
+        continue;
+      }
+
+      auto declNameWithoutSelf = StringRef(Name).split(".").second;
+      suggestedInitializerString +=
+        std::string(declNameWithoutSelf) + ":" + inferredDeclType + ",";
+      missingVariablesMessage +=
+        Name + "=" + std::string(declNameWithoutSelf) + "\n";
+    }
+
+    suggestedInitializerString.pop_back();
+
     diagnose(Module, loc,
-             diag::return_from_init_without_initing_stored_properties);
+        diag::return_from_init_without_initing_stored_properties)
+      .fixItInsert(loc.getEndSourceLoc(), missingVariablesMessage);
+
+    Decl *decl = Inst->getFunction()->getDeclContext()->getAsDecl();
+
+    if (auto *functionDecl = dyn_cast<AbstractFunctionDecl>(decl)) {
+      auto RParenLoc = functionDecl->getParameters()->getRParenLoc();
+      auto initFunctionLocation = SILLocation(functionDecl);
+
+      diagnose(Module, initFunctionLocation, diag::return_from_init_without_initing_stored_properties)
+        .fixItInsert(RParenLoc, suggestedInitializerString);
+    }
     noteUninitializedMembers(Use);
   }
 
